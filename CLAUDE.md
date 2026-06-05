@@ -53,7 +53,7 @@ is the day-to-day operating contract.
 - Why behind every decision: `docs/master-plan.md`; verification: `docs/plan-review.md`.
 
 ## Pinned versions (mirror of master plan; verify on arrival)
-- CUDA **13.2**; NGC vLLM image **`nvcr.io/nvidia/vllm:26.05.post1-py3`** (pin a digest on arrival).
+- CUDA: DGX OS baseline **13.0.x** (the OOBE `nvcc`/driver check); eugr wheel + NGC images target **13.2 (cu132)**. NGC vLLM image **`nvcr.io/nvidia/vllm:26.05.post1-py3`** (pin a digest on arrival).
 - NemoClaw **tag `v0.0.59`** (a git tag, not a Release — pin by tag/commit SHA).
 - eugr build wheel **cu132**; MXFP4 path `--exp-mxfp4 --mxfp4-backend CUTLASS --mxfp4-layers moe,qkv,o,lm_head`.
 - Driver **580 branch**. Dashboard origin **`127.0.0.1:18789`** (exact match; not `localhost`).

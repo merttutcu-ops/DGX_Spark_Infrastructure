@@ -17,6 +17,8 @@ placeholders → run numbered scripts.
 6. From your Mac: `scripts/06-ssh-tunnel-dashboard.sh` to reach the dashboard at 127.0.0.1:18789.
 7. Schedule `scripts/07-egress-probe.sh` (inference/anthropic liveness alerting).
 
+> Scripts are numbered as a catalog, not a strict sequence: the order above runs the resident model (04) before the on-demand 120B (03) on purpose, and `05-drop-caches.sh` is invoked automatically by `03`.
+
 ## Status
 - [x] Repo scaffold (this).  [ ] Hardware acquired.  [ ] Week-1 serving validated.
 - Rollout: see `runbooks/rollout-phases.md` (Phase 1 = CEO + PA + Coder + DevOps).
