@@ -1,1 +1,11 @@
 .DS_Store
+
+# --- secrets & local runtime (never commit) ---
+# (R4) Narrow, SPECIFIC patterns only. Broad globs like *token*/*secret* would silently
+# swallow legitimate future files (e.g. a token-budget doc, P2). Name the real secret files.
+.env*
+*.env
+*.key
+*.pem
+nemoclaw-proxy-env.sh
+ollama-proxy-token
