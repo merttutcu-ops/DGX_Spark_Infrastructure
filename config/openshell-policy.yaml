@@ -1,0 +1,80 @@
+# OpenShell network policy — DENY BY DEFAULT.
+# Sandbox outbound is blocked unless listed here. Each rule restricts which executables
+# (binaries, identified by kernel-trusted /proc/<pid>/exe + SHA256, re-checked on change)
+# may reach an endpoint, and which HTTP methods. Replacing a binary triggers an immediate deny.
+#
+# Imp-1 EXPLICIT INFERENCE ROUTES (two direct ports; do NOT rely on the default localhost path):
+#   resident Qwen3.6 on <spark-ip>:8001 (scripts/04), on-demand GPT-OSS-120B on <spark-ip>:8002 (scripts/03).
+#   The default sandbox->host route via the CONNECT proxy at 10.200.0.1:3128 returns 403 for POST to
+#   internal hosts, so we allowlist the explicit host:port per agent below.
+#   Apply with: nemoclaw <sandbox> policy-add --from-file config/openshell-policy.yaml
+#
+# TODO(verify-on-arrival): confirm exact field names/format against the installed NemoClaw
+# v0.0.59 blueprint policy (nemoclaw-blueprint/policies/openclaw-sandbox.yaml). The shape below
+# (per-agent -> rules[] -> {endpoint, binaries[], methods[], paths[]}) follows master plan §4; the
+# installed schema is authoritative. Fill node's SHA256 on the box (sha256sum /usr/local/bin/node).
+
+version: 1
+default: deny
+
+_anchors:
+  # Two inference routes — routine tier (:8001) and heavy tier (:8002). An agent gets only its tier.
+  vllm_resident: &vllm_resident
+    endpoint: "<spark-ip>:8001"             # routine tier (Qwen3.6); explicit host:port, NOT inference.local
+    binaries: ["/usr/local/bin/node"]        # OpenClaw runs as node; missing -> 403
+    methods: ["GET", "POST"]
+  vllm_heavy: &vllm_heavy
+    endpoint: "<spark-ip>:8002"             # heavy tier (GPT-OSS-120B, on-demand)
+    binaries: ["/usr/local/bin/node"]
+    methods: ["GET", "POST"]
+  slack: &slack
+    endpoint: "api.slack.com:443, slack.com:443, wss-*.slack.com:443"
+    binaries: ["/usr/local/bin/node"]
+    methods: ["GET", "POST"]
+  telegram: &telegram
+    endpoint: "api.telegram.org:443"        # default policy historically had NO binaries for telegram — add node
+    binaries: ["/usr/local/bin/node"]
+    methods: ["GET", "POST"]
+  github: &github
+    endpoint: "api.github.com:443, github.com:443"
+    binaries: ["/usr/local/bin/node", "/usr/bin/git"]
+    methods: ["GET", "POST"]
+  npm: &npm
+    endpoint: "registry.npmjs.org:443"
+    binaries: ["/usr/local/bin/node", "/usr/local/bin/npm"]
+    methods: ["GET"]
+  pip: &pip
+    endpoint: "pypi.org:443, files.pythonhosted.org:443"
+    binaries: ["/usr/bin/python3", "/usr/local/bin/pip"]
+    methods: ["GET"]
+
+agents:
+  ceo:
+    rules:
+      - *vllm_resident                       # CEO sub-agents fan out on the cheap resident model
+      - endpoint: "api.anthropic.com:443"    # ONLY the CEO reaches Anthropic
+        binaries: ["/usr/local/bin/node"]
+        methods: ["POST"]
+  pa:        { rules: [ *vllm_resident, *slack, *telegram ] }                 # routine tier
+  pm:        { rules: [ *vllm_resident, *slack, *telegram ] }                 # routine tier
+  architect: { rules: [ *vllm_heavy, *slack, *telegram ] }                    # heavy tier
+  coder:     { rules: [ *vllm_heavy, *slack, *telegram, *github, *npm, *pip ] }   # heavy tier + package egress (coder only, +devops)
+  qa:        { rules: [ *vllm_heavy, *slack, *telegram ] }                    # heavy tier
+  security:  { rules: [ *vllm_heavy, *slack, *telegram ] }                    # heavy tier
+  devops:    { rules: [ *vllm_resident, *slack, *telegram, *github, *npm, *pip ] }  # routine tier + package egress
+
+  # (R2) Scheduled egress probe (scripts/07) is NOT an LLM agent. It runs `curl`, but every rule above
+  # only allowlists `node`, so a curl probe would itself be denied (a false alarm). CHOICE made explicit:
+  # grant /usr/bin/curl GET-only to the two inference ports + the Anthropic /v1/models path ONLY — the
+  # tightest grant that lets a curl-based probe run.
+  # TODO(verify-on-arrival): confirm the installed NemoClaw supports per-binary + per-method + per-path
+  # scoping at this granularity. If it does NOT (curl would gain broader reach than intended), REPLACE
+  # this block by reimplementing scripts/07 as a Node script that reuses the already-allowlisted node
+  # binary, and delete this probe grant.
+  probe:
+    rules:
+      - { endpoint: "<spark-ip>:8001",        binaries: ["/usr/bin/curl"], methods: ["GET"], paths: ["/v1/models"] }
+      - { endpoint: "<spark-ip>:8002",        binaries: ["/usr/bin/curl"], methods: ["GET"], paths: ["/v1/models"] }
+      - { endpoint: "api.anthropic.com:443",  binaries: ["/usr/bin/curl"], methods: ["GET"], paths: ["/v1/models"] }
+# Everything not listed is denied. No Brave/web-search endpoint until the single
+# sandboxed research sub-agent is introduced (Phase 2) behind human-approval gates.

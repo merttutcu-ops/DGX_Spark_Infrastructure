@@ -1,0 +1,48 @@
+{
+  "$schema": "./openclaw.schema.json",
+  "models": {
+    "providers": {
+      "vllm-resident": {
+        "baseUrl": "http://<spark-ip>:8001/v1",
+        "apiKey": "dummy",
+        "api": "openai-completions",
+        "_note": "ALWAYS-RESIDENT routine tier (Qwen3.6-35B). Served by scripts/04 on :8001.",
+        "models": [ { "id": "vllm-resident/Qwen3.6-35B-A3B-NVFP4", "contextWindow": 32768 } ]
+      },
+      "vllm-heavy": {
+        "baseUrl": "http://<spark-ip>:8002/v1",
+        "apiKey": "dummy",
+        "api": "openai-completions",
+        "_note": "ON-DEMAND heavy tier (GPT-OSS-120B). Served by scripts/03 on :8002. Phase-1 upgrade: front both ports with llama-swap+LiteLLM (master plan §2) and switch these baseUrls to the router.",
+        "models": [ { "id": "vllm-heavy/gpt-oss-120b", "contextWindow": 32768 } ]
+      },
+      "anthropic": {
+        "api": "anthropic-messages",
+        "_note": "CEO key is supplied via the ceo agent's per-agent auth profile, NOT here."
+      }
+    }
+  },
+  "agents": {
+    "defaults": {
+      "heartbeat": { "every": "30m" },
+      "_heartbeat_note": "1h under Anthropic OAuth/token auth. Interval is config, not HEARTBEAT.md."
+    },
+    "list": [
+      { "id": "ceo",       "name": "CEO",               "model": "anthropic/claude-opus-4-8",            "workspace": "~/.openclaw/ws-ceo",    "effort": "high" },
+      { "id": "pa",        "name": "PersonalAssistant", "model": "vllm-resident/Qwen3.6-35B-A3B-NVFP4",  "workspace": "~/.openclaw/ws-pa" },
+      { "id": "pm",        "name": "ProductManager",    "model": "vllm-resident/Qwen3.6-35B-A3B-NVFP4",  "workspace": "~/.openclaw/ws-pm" },
+      { "id": "architect", "name": "Architect",         "model": "vllm-heavy/gpt-oss-120b",              "workspace": "~/.openclaw/ws-arch" },
+      { "id": "coder",     "name": "Coder",             "model": "vllm-heavy/gpt-oss-120b",              "workspace": "~/.openclaw/ws-coder" },
+      { "id": "qa",        "name": "QA",                "model": "vllm-heavy/gpt-oss-120b",              "workspace": "~/.openclaw/ws-qa" },
+      { "id": "security",  "name": "SecurityAuditor",   "model": "vllm-heavy/gpt-oss-120b",              "workspace": "~/.openclaw/ws-sec" },
+      { "id": "devops",    "name": "DevOps",            "model": "vllm-resident/Qwen3.6-35B-A3B-NVFP4",  "workspace": "~/.openclaw/ws-devops" }
+    ]
+  },
+  "slack": {
+    "requireMention": true,
+    "replyToMode": "off",
+    "replyToModeByChatType": { "channel": "first" },
+    "thread": { "inheritParent": true }
+  },
+  "logging": { "redactSensitive": "tools" }
+}

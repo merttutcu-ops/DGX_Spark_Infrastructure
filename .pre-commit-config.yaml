@@ -1,0 +1,40 @@
+repos:
+  # --- shellcheck: lint all shell scripts, following sourced files ---
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.10.0.1
+    hooks:
+      - id: shellcheck
+        name: shellcheck
+        # --source-path=scripts is REQUIRED: without it SC1091 fires on `. lib/common.sh`
+        # because shellcheck can't resolve the relative source path without it.
+        args: ["-x", "--source-path=scripts"]
+        files: ^scripts/
+
+  # --- shfmt: enforce consistent shell formatting ---
+  - repo: https://github.com/scop/pre-commit-shfmt
+    rev: v3.10.0-1
+    hooks:
+      - id: shfmt
+        name: shfmt
+        # -d diff mode: exits non-zero and prints the diff if a file is not formatted.
+        # To auto-fix: run `just fmt` (or `shfmt -w scripts`).
+        args: ["-d"]
+        files: ^scripts/
+
+  # --- JSON + YAML validity ---
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-json
+        name: check-json (validity)
+      - id: check-yaml
+        name: check-yaml (validity)
+        # YAML anchors/aliases (*vllm_resident etc.) in openshell-policy.yaml are standard
+        # YAML — safe_load handles them without special flags. No --unsafe needed.
+
+  # --- gitleaks: scan staged content for secrets ---
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.27.2
+    hooks:
+      - id: gitleaks
+        name: gitleaks (secret scan)

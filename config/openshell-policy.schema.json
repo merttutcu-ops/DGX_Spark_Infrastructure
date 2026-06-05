@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "openshell-policy.schema.json",
+  "title": "OpenShell egress policy",
+  "description": "JSON Schema (draft 2020-12) for config/openshell-policy.yaml (loaded as a dict)",
+  "type": "object",
+  "required": ["default", "agents"],
+  "properties": {
+    "version": { "type": "integer" },
+    "default": {
+      "const": "deny",
+      "description": "Must be 'deny' — deny-by-default is non-negotiable"
+    },
+    "_anchors": {
+      "type": "object",
+      "description": "YAML anchor definitions (informational; real validation is at agents level)"
+    },
+    "agents": {
+      "type": "object",
+      "description": "Per-agent (or per-service like 'probe') rule sets",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["rules"],
+        "properties": {
+          "rules": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["endpoint"],
+              "properties": {
+                "endpoint": { "type": "string" },
+                "binaries": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                },
+                "methods": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                },
+                "paths": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                }
+              },
+              "additionalProperties": true
+            }
+          }
+        }
+      }
+    }
+  },
+  "additionalProperties": true
+}
