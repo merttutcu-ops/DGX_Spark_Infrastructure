@@ -94,6 +94,85 @@ No claim was fabricated-and-confirmed: nothing came back ✓ on a made-up source
 
 ---
 
+---
+
+# Part 2 — Improvements (brainstorm)
+
+*Grounded in the Part 1 findings. Hardware (Spark Founders Edition) and the three-tier model split (Opus 4.8 CEO / GPT-OSS-120B heavy / Qwen3.6-35B-A3B routine) stay **locked** — Part 1 produced no disqualifying evidence against either. Ranked by impact × likelihood × strength-of-evidence. Each item: what it's grounded in · options & trade-offs · recommendation.*
+
+## Improvement 1 — Make the sandbox→inference egress path the #1 monitored surface *(answers Q1: weakest link)*
+
+**Grounded in:** Cluster 2 — the 403/CONNECT-proxy + binary-path allowlist is the single most-traversed and most-fragile element. Six historical issues (#314/#385/#391/#417/#1786/#3390) plus **two still-open, in-window** ones (#3836, 2026-05-19, `ERR_PROXY_TUNNEL` 403; #4304, 2026-05-27, onboard ignores `HTTP_PROXY`). The allowlist keys on `/proc/<pid>/exe` + SHA256, **re-checked on change** — so *any* vLLM/NemoClaw update that swaps the `node` binary or rewrites the policy silently turns every agent's next model call into a 403.
+
+This is where the 8-agent system breaks first in daily use: it's on the hot path of every single turn, and it fails *silently and globally* after routine updates.
+
+**Options:**
+- **A. Reactive** — keep the plan's log-scan for `denied/blocked/error`. Cheap, but you learn about the break *after* agents have failed and burned retries/fail-stops.
+- **B. Proactive synthetic probe (recommend)** — a tiny scheduled "inference heartbeat" from *inside* the sandbox that POSTs a 1-token request to each model endpoint (vLLM `:8000`, Ollama proxy `:11435`, `api.anthropic.com`) every N minutes and alerts on 403/timeout *before* a real agent turn hits it. Pin the `node` binary path + the policy YAML in the backup set, and re-run the probe as the **first step of every update window** so a re-hash break surfaces immediately.
+- **C. Bypass the proxy** — serve models on an explicit allowlisted host:port and drop the default localhost route entirely (the plan already leans this way in Step 7). Do this *and* B.
+
+**Recommendation: B + C.** The probe converts a silent global failure into a single early alert; the explicit host:port route removes the most common 403 trigger. Low effort, highest reliability return.
+
+## Improvement 2 — Make the task queue the dispatch spine; channels and sub-agents hang off it *(answers Q2: dispatch topology)*
+
+**Grounded in:** §3 of the plan uses all three patterns (sub-agent spawning, channel tickets, task queue). The risk isn't that three patterns is *wrong* — they serve genuinely different needs (parallelism vs human-visibility vs scheduling) — it's that three *co-equal* patterns create **three independent sources of truth**, which diverge.
+
+**Options:**
+- **A. Keep co-equal** — maximum flexibility, but state can live in a Slack thread, a queue row, and a sub-agent session simultaneously, and reconciling them is manual.
+- **B. Collapse to one** — e.g. queue-only. Simplest, but you lose human-visible channel tickets and cheap fan-out.
+- **C. Impose a hierarchy (recommend)** — the **shared-workspace task queue is the authoritative state**; channel tickets are a *human-facing projection* of queue items (write-through, not a separate store); sub-agents are *ephemeral workers dispatched FROM the queue*, never spawned ad-hoc, each writing results back to the queue row that spawned them.
+
+**Recommendation: C.** Keep all three patterns but give them a strict ordering — one source of truth, two views. This directly de-risks the Slack-outage and runaway-fan-out failure modes in Improvement 5 (if Slack dies, dispatch continues from the queue; if a sub-agent dies, its queue row is still authoritative).
+
+## Improvement 3 — Dashboard: sandboxed Mission Control eval for low-trust views, build the trust-critical path yourself *(answers Q3)*
+
+**Grounded in:** `builderz-labs/mission-control` is **real and active** (5,193★, MIT, pushed 2026-06-02) — *not* vaporware. **But** it was created 2026-02-13 (≈4 months old), ships from a **Solana/web3 studio** (org repos: `anon-pay`, `helius-rpc-proxy`, `renaissance-xnft` — not an agent-security pedigree), has 15 open issues, and is surrounded by zero-star clones. Cross-referenced with **Cluster 4**: the OpenClaw/ClawHub ecosystem is a *demonstrated* hostile supply chain (341→1,184 malicious skills; ClawHavoc/AMOS; Silverfort gamed a skill to #1 → 3,900 executions). A dashboard that does RBAC + cost-tracking + an "Aegis review gate" + an OpenClaw adapter sits squarely **in the trust path**.
+
+**Options:**
+- **A. Adopt Mission Control wholesale** — fastest, batteries-included (cost tracking, RBAC, review gate). But you inherit a 4-month-old third party's full dependency tree and egress in exactly the ecosystem Cluster 4 says to treat as hostile — and it would own your approval/kill-switch path.
+- **B. Build a minimal Casel-style Next.js dispatcher** — smallest trusted surface, full control, but you rebuild cost-tracking/RBAC/review-gate (weeks).
+- **C. Split by trust level (recommend)** — let Mission Control handle **low-trust visualization** (cost dashboards, queue/board display) *after* a real audit: pin a vetted commit SHA, read its egress + deps with the same rigor you'd apply to a ClawHub skill, run it network-restricted. Build a **thin dispatcher you fully control for the high-trust path only**: approval gates, spend caps, the kill-switch. Never let third-party code own the kill-switch.
+
+**Recommendation: C**, and this is a **Phase-2 decision, not Week-1** — don't let dashboard choice gate the 3-4-agent pilot. The Cluster 4 evidence makes "adopt wholesale" (A) the wrong default for anything on the trust path.
+
+## Improvement 4 — Refresh image pins to the last-60-day reality; trial MTP on the resident model behind a fallback *(answers Q4)*
+
+**Grounded in (all dated within ~60 days):**
+- **CUDA moved to 13.2** — eugr `cu132` wheel (2026-06-03); NGC now `26.03-py3` (0.17.1) through `26.05.post1-py3`. → Re-pin to CUDA-13.2 images; delete 13.0/13.1.
+- **NemoClaw v0.0.59** (git tag, 2026-06-04) fixes the GB10 container-start "CUDA unknown error." → Adopt, pinned by **commit SHA** (it's a tag, not a Release). But #3836/#4304 show the 403/proxy class is **not fully closed** — keep Improvement 1's probe.
+- **NVIDIA June-1 blog: 2.6× faster Qwen3.6-35B via NVFP4 + MTP.** → A real, large speedup on the *resident* model. **Tension:** the eugr maintainer warns NVFP4 speculative decoding "is known to crash sometimes."
+
+**Options for MTP:** (A) ignore it — leave throughput on the table; (B) make MTP load-bearing — fastest, but a crash takes down all routine agents; (C, recommend) **pilot MTP behind a feature flag with automatic fallback to the non-MTP resident config**, gated by Improvement 5's golden-set eval.
+
+**Recommendation:** mechanical re-pin (CUDA-13.2 / NGC-26.05 / NemoClaw-v0.0.59-by-SHA) now; MTP as a *flagged, fallback-guarded* experiment, never load-bearing. Multi-node "NVIDIA Sync" (also in the blog) is noted as a future scale path — **not** a reason to revisit the locked single-Spark decision.
+
+## Improvement 5 — Add the four uncovered failure modes to the runbook *(answers Q5 — highest-value gap)*
+
+**Grounded in:** §4 covers the runaway-agent kill-switch, spend caps, fail-stops, and backups — but is **silent** on these four, each a single point of failure:
+
+| Failure mode | Why the plan misses it | Mitigation to add |
+|---|---|---|
+| **Corrupted / diverged workspace git state** | The shared workspace is *both* the source of truth *and* prefilled every turn. Concurrent writes, a force-push, or a bad rebase corrupt the prefill and **poison every agent's context at once**. | Serialize writes (a single "scribe" commits on behalf of agents, or a write-lock); protect the branch (no force-push/rebase); assert a clean, `git fsck`-valid tree *before* a turn consumes the prefill. |
+| **Slack/Telegram outage** | Channels are the human bus *and* part of dispatch — if Slack stalls, channel-ticket dispatch silently halts. | Improvement 2 makes the **queue** authoritative; detect channel-delivery failure and fall back to queue + an out-of-band alert (email/SMS). |
+| **Model regression after an update** | Plan says "test on a non-critical agent first" but defines **no automated gate**. | A tiny **golden-set eval** (a few tool-calling + reasoning probes) auto-run after any vLLM/NemoClaw/model/MTP change; gate promotion on it; **auto-rollback** to the pinned prior image on regression. |
+| **Runaway *recursive* sub-agent fan-out** | Plan caps *concurrent* sub-agents + gives a BUDGET, but not **recursion depth** or **spawn rate** (a sub-agent spawning sub-agents). CloudZero's "$25/M across 50 streams" is the cost shape of this. | Global spawn **semaphore** + **max recursion depth** + rate limiter in the dispatcher; wire the kill-switch to "total active sessions > N." |
+
+**Recommendation:** add all four as explicit runbook playbook entries before Phase 2. The **workspace-git-corruption** guard is the highest-value single addition in this whole list — it's the one unguarded failure that can silently degrade *all eight agents simultaneously*.
+
+---
+
+## Ranked summary & recommendation
+
+| # | Improvement | Phase | Effort | Why this rank |
+|---|---|---|---|---|
+| 1 | Inference-egress synthetic probe + explicit host:port route | 1 | Low | Most-traversed path; silent global break after updates; strongest (in-window) evidence |
+| 2 | Failure-mode playbook (esp. workspace-git guard) | 1-2 | Med | Unguarded single points of failure; git-corruption hits all 8 at once |
+| 3 | Queue-as-spine dispatch hierarchy | 1-2 | Med | Removes state divergence; de-risks #1's outage + fan-out modes |
+| 4 | Dashboard: sandboxed Mission Control + self-owned trust path | 2 | Med-High | Real decision, mixed maturity evidence; never give 3rd-party code the kill-switch |
+| 5 | Re-pin to CUDA-13.2 / NGC-26.05 / v0.0.59; flagged MTP | 1 | Low | Hygiene + a real 2.6x resident-model speedup, guarded by #2's eval |
+
+**One-line recommendation:** ship Improvements 1 and 5 (low-effort, Week-1) alongside the existing Phase-1 pilot; fold 2 and 3 in as you stand up the dispatcher; defer 4 to Phase 2 behind a real security audit. Nothing here disturbs the locked hardware or three-tier model decisions.
+
 ## Source files
 
 Full per-claim detail (claim · verdict · evidence URL + date · notes) lives in:
