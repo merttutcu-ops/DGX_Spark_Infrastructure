@@ -4,17 +4,27 @@ on:
   pull_request:
   push:
 
+# gitleaks-action on a pull_request event reads the PR's commit list via the API,
+# which needs pull-requests:read. contents:read covers checkout for every job.
+permissions:
+  contents: read
+  pull-requests: read
+
 jobs:
   shellcheck:
     name: shellcheck
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install shellcheck
+      - name: Install shellcheck (pinned v0.10.0 — matches .pre-commit-config rev)
+        # Pinned (not apt) so CI, pre-commit, and local reproduction all run the SAME shellcheck.
+        # The unpinned apt version differed from local 0.11.0, which is how SC2015 slipped past local checks.
         run: |
           set -euo pipefail
-          sudo apt-get update -q
-          sudo apt-get install -y shellcheck
+          curl -fsSL https://github.com/koalaman/shellcheck/releases/download/v0.10.0/shellcheck-v0.10.0.linux.x86_64.tar.xz \
+            | tar -xJ -C /tmp
+          sudo mv /tmp/shellcheck-v0.10.0/shellcheck /usr/local/bin/shellcheck
+          shellcheck --version
       - name: Run shellcheck
         # --source-path=scripts is REQUIRED: without it SC1091 fires because shellcheck
         # cannot follow the relative ". lib/common.sh" source in each script.

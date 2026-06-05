@@ -915,8 +915,12 @@ if [ "${MTP:-0}" = "1" ]; then
   # Capture failure explicitly; on ANY non-zero, fall back to the plain config and alert.
   if ! vllm serve "${COMMON[@]}" --speculative-config '{"method":"mtp"}'; then
     warn "MTP variant failed — falling back to non-MTP resident config (not load-bearing)."
-    [ -n "${SLACK_WEBHOOK:-}" ] && curl -fsS -X POST -H 'Content-Type: application/json' \
-      -d '{"text":"spark: Qwen MTP variant crashed; fell back to non-MTP resident."}' "$SLACK_WEBHOOK" || true  # alert is best-effort; N=1 webhook, failure mode = no Slack ping (already logged above)
+    if [ -n "${SLACK_WEBHOOK:-}" ]; then
+      # best-effort alert; on failure we warn (not silent) and still fall back below
+      curl -fsS -X POST -H 'Content-Type: application/json' \
+        -d '{"text":"spark: Qwen MTP variant crashed; fell back to non-MTP resident."}' \
+        "$SLACK_WEBHOOK" || warn "Slack MTP-fallback alert failed to post"
+    fi
     start_plain
   fi
 else
@@ -1328,6 +1332,7 @@ earns its place earliest.
 - [ ] Workflow running on PR: `shellcheck -x scripts/**/*.sh`, `shfmt -d scripts`, `jq empty config/*.json`,
   the YAML/schema validation, and `gitleaks detect`. Each job fails loudly on error (no `continue-on-error`).
   Verify with `actionlint .github/workflows/ci.yml` (or `python3 -c 'import yaml; yaml.safe_load(open(...))'`).
+  **Learned on first CI run:** (a) add top-level `permissions: {contents: read, pull-requests: read}` — gitleaks-action's PR scan reads `/pulls/N/commits` and 403s without it; (b) PIN shellcheck to v0.10.0 (matches `.pre-commit-config` rev) instead of unpinned apt — the apt version differs from local and trips SC2015 that local 0.11.0 suppresses.
   Commit `ci: add lint/validate/secret-scan workflow`.
 
 ### Task 7.3: `.pre-commit-config.yaml`

@@ -24,8 +24,12 @@ if [ "${MTP:-0}" = "1" ]; then
   # Capture failure explicitly; on ANY non-zero, fall back to the plain config and alert.
   if ! vllm serve "${COMMON[@]}" --speculative-config '{"method":"mtp"}'; then
     warn "MTP variant failed — falling back to non-MTP resident config (not load-bearing)."
-    [ -n "${SLACK_WEBHOOK:-}" ] && curl -fsS -X POST -H 'Content-Type: application/json' \
-      -d '{"text":"spark: Qwen MTP variant crashed; fell back to non-MTP resident."}' "$SLACK_WEBHOOK" || true # alert is best-effort; N=1 webhook, failure mode = no Slack ping (already logged above)
+    if [ -n "${SLACK_WEBHOOK:-}" ]; then
+      # best-effort alert; on failure we warn (not silent) and still fall back below
+      curl -fsS -X POST -H 'Content-Type: application/json' \
+        -d '{"text":"spark: Qwen MTP variant crashed; fell back to non-MTP resident."}' \
+        "$SLACK_WEBHOOK" || warn "Slack MTP-fallback alert failed to post"
+    fi
     start_plain
   fi
 else
