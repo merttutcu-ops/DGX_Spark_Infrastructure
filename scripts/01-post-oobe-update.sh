@@ -7,7 +7,8 @@
 [ "$(uname -m)" = "aarch64" ] || warn "expected aarch64 DGX OS; uname -m = $(uname -m)"
 
 log "Current driver / CUDA:"
-require_cmd nvidia-smi; nvidia-smi --query-gpu=driver_version --format=csv,noheader || warn "nvidia-smi query failed"
+require_cmd nvidia-smi
+nvidia-smi --query-gpu=driver_version --format=csv,noheader || warn "nvidia-smi query failed"
 if command -v nvcc >/dev/null 2>&1; then nvcc --version | tail -2; else warn "nvcc not on PATH yet"; fi
 
 run_destructive "apt update + full-upgrade (pull deferred OTA/OS updates)" \
@@ -15,6 +16,6 @@ run_destructive "apt update + full-upgrade (pull deferred OTA/OS updates)" \
 
 # Assert the expected baseline; warn (do not fail) so the operator decides.
 DRV="$(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -1 || true)"
-case "$DRV" in 580.*) log "driver on 580 branch: $DRV";; *) warn "driver not on 580 branch (got '$DRV') — 570 is EOL; verify";; esac
+case "$DRV" in 580.*) log "driver on 580 branch: $DRV" ;; *) warn "driver not on 580 branch (got '$DRV') — 570 is EOL; verify" ;; esac
 # TODO(verify-on-arrival): confirm DGX OS build (7.5.x line) and CUDA 13.x via `nvcc --version`.
 log "01 complete. Next: scripts/02-nemoclaw-install.sh"

@@ -10,9 +10,13 @@
 require_cmd vllm
 
 HEAVY_PORT="${HEAVY_PORT:-8002}"
-if port_open 127.0.0.1 "$HEAVY_PORT"; then log "heavy tier already up on :$HEAVY_PORT — not starting 120B"; exit 0; fi
+if port_open 127.0.0.1 "$HEAVY_PORT"; then
+  log "heavy tier already up on :$HEAVY_PORT — not starting 120B"
+  exit 0
+fi
 
-log "flushing caches before the heavy load…"; "$(dirname "$0")/05-drop-caches.sh"
+log "flushing caches before the heavy load…"
+"$(dirname "$0")/05-drop-caches.sh"
 
 # TODO(verify-on-arrival): pin the eugr image/wheel (cu132) or NGC digest; confirm flags on the build.
 #

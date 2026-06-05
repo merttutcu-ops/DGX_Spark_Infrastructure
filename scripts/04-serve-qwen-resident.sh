@@ -10,11 +10,14 @@
 require_cmd vllm
 
 RESIDENT_PORT="${RESIDENT_PORT:-8001}"
-COMMON=( nvidia/Qwen3.6-35B-A3B-NVFP4 --port "$RESIDENT_PORT"
+COMMON=(nvidia/Qwen3.6-35B-A3B-NVFP4 --port "$RESIDENT_PORT"
   --tensor-parallel-size 1 --max-num-seqs 4 --max-model-len 32768
-  --gpu-memory-utilization 0.45 --kv-cache-dtype fp8 --enable-prefix-caching --trust-remote-code )
+  --gpu-memory-utilization 0.45 --kv-cache-dtype fp8 --enable-prefix-caching --trust-remote-code)
 
-start_plain() { log "starting Qwen3.6 resident (no MTP)…"; vllm serve "${COMMON[@]}"; }
+start_plain() {
+  log "starting Qwen3.6 resident (no MTP)…"
+  vllm serve "${COMMON[@]}"
+}
 
 if [ "${MTP:-0}" = "1" ]; then
   log "MTP=1 requested — attempting speculative-decoding variant (experimental)…"
@@ -22,7 +25,7 @@ if [ "${MTP:-0}" = "1" ]; then
   if ! vllm serve "${COMMON[@]}" --speculative-config '{"method":"mtp"}'; then
     warn "MTP variant failed — falling back to non-MTP resident config (not load-bearing)."
     [ -n "${SLACK_WEBHOOK:-}" ] && curl -fsS -X POST -H 'Content-Type: application/json' \
-      -d '{"text":"spark: Qwen MTP variant crashed; fell back to non-MTP resident."}' "$SLACK_WEBHOOK" || true  # alert is best-effort; N=1 webhook, failure mode = no Slack ping (already logged above)
+      -d '{"text":"spark: Qwen MTP variant crashed; fell back to non-MTP resident."}' "$SLACK_WEBHOOK" || true # alert is best-effort; N=1 webhook, failure mode = no Slack ping (already logged above)
     start_plain
   fi
 else

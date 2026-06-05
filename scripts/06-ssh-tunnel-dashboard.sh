@@ -5,7 +5,10 @@
 . "$(dirname "$0")/lib/common.sh"
 
 DGX_HOST="${DGX_HOST:?set DGX_HOST=<user>@<DGX_LAN_IP> (or a Tailscale name)}"
-if port_open 127.0.0.1 18789; then log "127.0.0.1:18789 already reachable — tunnel likely up"; exit 0; fi
+if port_open 127.0.0.1 18789; then
+  log "127.0.0.1:18789 already reachable — tunnel likely up"
+  exit 0
+fi
 
 log "opening tunnel: 127.0.0.1:18789 -> ${DGX_HOST}:127.0.0.1:18789  (Ctrl-C to close)"
 log "then open http://127.0.0.1:18789/ in your browser"

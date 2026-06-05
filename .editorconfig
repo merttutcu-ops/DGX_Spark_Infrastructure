@@ -1,0 +1,18 @@
+# EditorConfig — one declarative style for editors, shfmt, and CI.
+# https://editorconfig.org  (shfmt reads indent_style/indent_size from here, so the
+# CI / justfile / pre-commit can all call `shfmt` flag-free and stay consistent.)
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.sh]
+indent_style = space
+indent_size = 2
+
+[*.md]
+# markdown sometimes uses trailing-space line breaks
+trim_trailing_whitespace = false
