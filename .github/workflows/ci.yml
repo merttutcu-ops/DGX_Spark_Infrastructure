@@ -1,0 +1,86 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+
+jobs:
+  shellcheck:
+    name: shellcheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install shellcheck
+        run: |
+          set -euo pipefail
+          sudo apt-get update -q
+          sudo apt-get install -y shellcheck
+      - name: Run shellcheck
+        # --source-path=scripts is REQUIRED: without it SC1091 fires because shellcheck
+        # cannot follow the relative ". lib/common.sh" source in each script.
+        # lib/common.sh is listed explicitly because scripts/*.sh does not recurse into lib/.
+        run: |
+          set -euo pipefail
+          shellcheck -x --source-path=scripts scripts/lib/common.sh scripts/*.sh
+
+  shfmt:
+    name: shfmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install shfmt
+        run: |
+          set -euo pipefail
+          curl -fsSL https://github.com/mvdan/sh/releases/download/v3.10.0/shfmt_v3.10.0_linux_amd64 \
+            -o /usr/local/bin/shfmt
+          chmod +x /usr/local/bin/shfmt
+      - name: Run shfmt diff check
+        # -d prints a unified diff and exits non-zero if any file is not formatted.
+        run: |
+          set -euo pipefail
+          shfmt -d scripts
+
+  config-validate:
+    name: config-validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate JSON files with jq
+        run: |
+          set -euo pipefail
+          for f in config/*.json; do
+            echo "jq empty: $f"
+            jq empty "$f"
+          done
+      - name: Install Python dependencies
+        run: |
+          set -euo pipefail
+          pip install jsonschema pyyaml
+      - name: Validate configs against schemas
+        run: |
+          set -euo pipefail
+          python3 - <<'PYEOF'
+          import json, yaml, jsonschema, sys
+
+          oc_data = json.load(open("config/openclaw.json"))
+          oc_schema = json.load(open("config/openclaw.schema.json"))
+          jsonschema.validate(oc_data, oc_schema)
+          print("openclaw.json validates against schema: OK")
+
+          policy_data = yaml.safe_load(open("config/openshell-policy.yaml"))
+          policy_schema = json.load(open("config/openshell-policy.schema.json"))
+          jsonschema.validate(policy_data, policy_schema)
+          print("openshell-policy.yaml validates against schema: OK")
+          PYEOF
+
+  gitleaks:
+    name: gitleaks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Run gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
