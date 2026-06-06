@@ -58,6 +58,10 @@ Run on the actual rig with `eugr/llama-benchy` (the same harness Spark Arena use
 
 **Promotion rule:** adopt Atlas on the resident tier **only if Gates 1–5 all pass**. Any crash (G2/G5), tool-call regression (G3), or single-stream loss (G1) → **stay on vLLM, re-test in ~1 month.** If Atlas wins while #110 is still open, deploy **NVFP4-without-MTP only** and cap resident fan-out width <4.
 
+**Amendment (2026-06-06 forum harvest):**
+- **Spec-decode measurement (E6):** any gate measured on a **spec-decode-enabled** config (MTP *or* DFlash) MUST record a **second measurement method** alongside `llama-benchy` — e.g. vLLM `/metrics` token counters or a timed fixed-prompt generation — because `llama-benchy` **under-reports** throughput when spec-decode is active. The gates as written are unaffected for non-spec-decode configs.
+- **DFlash as a bake-off variant (E5):** **DFlash** (z-lab drafter, ~15 speculative tokens; needs vLLM PR #40898) is an allowed spec-decode config variant in the sweep, under the **same #110-class caution as MTP** (optional-with-fallback, never load-bearing; deep-context + concurrency ≥4 is the danger zone).
+
 ## Consequences
 
 - **Positive:** decision is evidence-gated, not hype-driven; vLLM (proven for both our models) ships day-1; the OpenAI-compatible interface makes a later resident-tier flip a small change (`scripts/04` + the `openclaw.json` baseUrl); Atlas's purpose-built SM12x NVFP4 kernels are a real potential edge over vLLM's rough sm_121 path (the master plan's #1 serving risk, PR #35947).
