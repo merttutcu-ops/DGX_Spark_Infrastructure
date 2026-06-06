@@ -54,12 +54,13 @@ is the day-to-day operating contract.
 - Forum-harvest evidence (E-items): `docs/research/2026-06-06-forum-harvest.md`.
 
 ## Pinned versions (mirror of master plan; verify on arrival)
-- CUDA: DGX OS baseline **13.0.x** (the OOBE `nvcc`/driver check); eugr wheel + NGC images target **13.2 (cu132)**. NGC vLLM image **`nvcr.io/nvidia/vllm:26.05.post1-py3`** (pin a digest on arrival).
+- CUDA: DGX OS baseline **13.0.x** (the OOBE `nvcc`/driver check); eugr wheel + NGC images target **13.2 (cu132)**. NGC vLLM image **`nvcr.io/nvidia/vllm:26.05.post1-py3`** (pin a digest on arrival). **The exact CUDA / driver / vLLM / FlashInfer tuple is pinned FROM the actual build image at install time — these prose versions are superseded by the image (E18/E12).**
 - NemoClaw **tag `v0.0.59`** (a git tag, not a Release — pin by tag/commit SHA).
-- eugr build wheel **cu132**; MXFP4 path `--exp-mxfp4 --mxfp4-backend CUTLASS --mxfp4-layers moe,qkv,o,lm_head`.
+- eugr build wheel **cu132**. **MXFP4 backend is build-scoped (E18):** on the **eugr `--exp-mxfp4` fork**, CUTLASS is the decided fast path (`--mxfp4-backend CUTLASS --mxfp4-layers moe,qkv,o,lm_head`, ~57–59 t/s); on **stock vLLM 0.17.x** the documented known-good fallback is `VLLM_MXFP4_BACKEND=marlin` (and `VLLM_NVFP4_GEMM_BACKEND` does **not** exist in 0.17.1 — silently ignored). **Doctrine:** backend claims carry build provenance; the **active backend is verified from the startup log** ("Using backend: marlin" / "Auto-selected: CUTLASS_FP4"), never inferred from flags.
+- **OpenShell node-binary path is measured, not hardcoded (E23):** the policy allowlist keys on the exact `/proc/<pid>/exe` + SHA256, so the wrong path is itself the 403 mode (playbooks use `/usr/bin/node`; our draft used `/usr/local/bin/node`). At setup time write the policy from the **measured** path — `readlink /proc/$(pgrep -fn openclaw)/exe` — and treat the `/usr/local/bin/node` in `config/openshell-policy.yaml` as a placeholder superseded by it.
 - Driver **580 branch**. Dashboard origin **`127.0.0.1:18789`** (exact match; not `localhost`).
 - MTP/speculative decoding is **optional with automatic fallback — never load-bearing**.
 - Serving ports: resident Qwen **:8001**, on-demand 120B **:8002**, dashboard **127.0.0.1:18789**, gateway 8080, Ollama proxy 11435.
-- **Resident KV cache: BF16, never `fp8` KV** — until a P9 golden-set eval explicitly passes FP8-KV. Basis: E1.
+- **Resident KV cache: BF16, never `fp8` KV** — until a P9 golden-set eval explicitly passes FP8-KV. Basis: E1. **Scope: RESIDENT TIER ONLY** (E1 evidence is Qwen3.6). The **heavy tier** follows the **E19 community-validated recipe including `--kv-cache-dtype fp8`**, gated by its own day-1 quality checks (garbage canary + golden-set). Two models, two evidence bases, two decisions — do not unify them.
 - **Resident quant (annotation, not a flip):** default candidate stays **Qwen3.6-35B-A3B NVFP4**; spring-2026 fixes (E12) made *both* kernel paths functional — the Marlin-only / #35947 rationale is **superseded**. Final resident quant is decided by the day-1 three-way sweep (master plan). Verify on arrival: **PR #38126**, **FlashInfer ≥0.6.8.post1**, **CUTLASS 4.5.0 (b12x)**.
 - **vLLM build pin is safety-critical:** tool-calling reliability is version-dependent (E14) — never bump vLLM without re-running the tool-eval gate.
