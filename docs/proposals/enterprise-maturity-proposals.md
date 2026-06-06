@@ -79,6 +79,10 @@ Tag every task with a project; weekly rollup of tokens + dollars per project wit
 budget envelopes. Becomes billable-cost accounting the moment agents do client work.
 *Cost:* low (rides on P1/P8 data). · **DEPENDS ON:** P1. · **PROMOTION CRITERIA:**
 first client-attributable agent work.
+**Cost-signal note (finops):** the **primary** runaway-fan-out signal is **endpoint-based** — any
+sub-agent session reaching `api.anthropic.com` (correct count ≈ **0**: fan-out routes to `:8001` by
+design). Dollar thresholds ($5/hr, $10/day) are the **secondary** signal. Cross-ref **P4**, whose egress
+audit already builds this sensor. Model: `docs/finops/opus-cost-model.md`.
 
 ## P14 — Bootstrap-from-zero drill
 The repo claims paste-and-run; test the claim. Quarterly: restore the full system
