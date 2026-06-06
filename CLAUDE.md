@@ -51,6 +51,7 @@ is the day-to-day operating contract.
 - Spark/Mac scripts: `scripts/` (numbered, idempotent, confirm before destructive).
 - Ops: `runbooks/`. Dispatch queue + format: `tasks/`.
 - Why behind every decision: `docs/master-plan.md`; verification: `docs/plan-review.md`.
+- Forum-harvest evidence (E-items): `docs/research/2026-06-06-forum-harvest.md`.
 
 ## Pinned versions (mirror of master plan; verify on arrival)
 - CUDA: DGX OS baseline **13.0.x** (the OOBE `nvcc`/driver check); eugr wheel + NGC images target **13.2 (cu132)**. NGC vLLM image **`nvcr.io/nvidia/vllm:26.05.post1-py3`** (pin a digest on arrival).
@@ -59,3 +60,6 @@ is the day-to-day operating contract.
 - Driver **580 branch**. Dashboard origin **`127.0.0.1:18789`** (exact match; not `localhost`).
 - MTP/speculative decoding is **optional with automatic fallback — never load-bearing**.
 - Serving ports: resident Qwen **:8001**, on-demand 120B **:8002**, dashboard **127.0.0.1:18789**, gateway 8080, Ollama proxy 11435.
+- **Resident KV cache: BF16, never `fp8` KV** — until a P9 golden-set eval explicitly passes FP8-KV. Basis: E1.
+- **Resident quant (annotation, not a flip):** default candidate stays **Qwen3.6-35B-A3B NVFP4**; spring-2026 fixes (E12) made *both* kernel paths functional — the Marlin-only / #35947 rationale is **superseded**. Final resident quant is decided by the day-1 three-way sweep (master plan). Verify on arrival: **PR #38126**, **FlashInfer ≥0.6.8.post1**, **CUTLASS 4.5.0 (b12x)**.
+- **vLLM build pin is safety-critical:** tool-calling reliability is version-dependent (E14) — never bump vLLM without re-running the tool-eval gate.

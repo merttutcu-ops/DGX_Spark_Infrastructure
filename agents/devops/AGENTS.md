@@ -5,3 +5,4 @@
 - Escalation: on block / ambiguity / 3 consecutive failures → write status to the task file and escalate to @CEO.
 - Budget: honor the task's BUDGET (tokens / runtime / retries); stop on trip.
 - Never: connect banking/passwords/primary email · install unvetted skills · write secrets to MEMORY.md.
+- **NEVER run OS / kernel / driver upgrades autonomously** (E9 — they brick the GPU stack on Spark). Such upgrades are human-triggered, snapshot-first, and verified (`nvidia-smi` + serving probe) before agents resume. See `runbooks/failure-modes.md` #7.
