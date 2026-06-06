@@ -54,3 +54,26 @@ wire the kill-switch to "total active sessions > N".
 ## 9. NemoClaw agent/cron regression on OS v1.135.34 (E17)
 **Symptoms:** on OS 2026.05.31 (v1.135.34), NemoClaw agents break (`tool_search_code` error) and cron jobs become unscheduleable. **Status: open upstream, unresolved.**
 **Fallback:** schedule the heartbeat / egress-probe jobs via **systemd timers** instead of NemoClaw cron until it is fixed (see master-plan addenda / E17).
+
+---
+
+*Entries 10–13 are from the 2026-06-06 plan cross-check (batch 3; E18–E27).*
+
+## 10. Heavy tier emits garbage (`!!!` / repetition) (E18)
+**Symptoms:** the heavy model (gpt-oss-120b) emits `!!!` runs or repetition loops instead of coherent output.
+**Detection:** a `!!!`/repetition canary on the heavy tier at startup; **read the startup log for the active backend** ("Using backend: marlin" / "Auto-selected: CUTLASS_FP4") — never infer it from the flag.
+**Why it happens:** MXFP4 backend selection is **build-scoped** — stock vLLM 0.17.x mis-selects a broken CUTLASS MoE-GEMM kernel on SM121; both forked-CUTLASS and Marlin had real, since-fixed garbage eras (E18).
+**Fallback ladder (log-verified at each step):** on the eugr `--exp-mxfp4` fork → `--mxfp4-backend CUTLASS` (correct + fast). On stock vLLM → `VLLM_MXFP4_BACKEND=marlin` (`VLLM_NVFP4_GEMM_BACKEND` does **not** exist in 0.17.1, silently ignored). After any change, re-read the startup log and re-run the canary.
+
+## 11. Sandbox state wiped on restart (E24)
+**Why it bites:** `/sandbox/` is **ephemeral by design** ("wiped on every reboot or container restart"); the v0.1.0 cluster image ships the sandbox CRD with **no PVC**, and the agent container has **no memory limit** (an unbounded skill OOM-exits 137, taking the sandbox with it).
+**Prevention checks:** verify the CRD has a **PVC / `volumeClaimTemplates`**; set an **explicit container memory limit**.
+**Persistence model (LOAD-BEARING):** host-side backup *is* the persistence model, not a mitigation — back up the host-side set and restore from git / host backup after any wipe. Exact backup / NOT-backed-up lists: `runbooks/openshell-policy-reference.md`.
+
+## 12. Session corruption stall — double user message (E26)
+**Symptoms:** OpenClaw 2026.3.x — two consecutive user messages with no assistant reply between them → HTTP 400 + a permanent stall.
+**Watchdog (Phase-1 dispatcher requirement, alongside the 3-failure / 10-min stops):** a 30s-polling watchdog detects ≥2 trailing consecutive user messages in a session JSONL → deletes that session JSONL → alerts; run via `nohup` in the dispatcher health loop.
+
+## 13. Cold load (UMA page cache)
+**Standard ritual:** `scripts/05-drop-caches.sh` (`sync; echo 3 > /proc/sys/vm/drop_caches`) between model swaps and before loading the 120B remains the **community-standard** mitigation for UMA OOM-within-capacity.
+**Open question:** whether `drop_caches` is the *authoritative* answer (vs. a workaround) is still open on our thread — **topic 372476**; revisit when it resolves.

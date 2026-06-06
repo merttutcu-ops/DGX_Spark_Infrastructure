@@ -12,6 +12,10 @@ plan warns about but never instruments. *Cost:* low (one cron + Slack post).
 Assert each agent's prefilled file set stays under a token budget (CI/pre-turn); scheduled
 compaction of stale MEMORY. *Leverage:* keeps the cost model valid over time + reduces
 post-compaction derailment. *Cost:* low.
+**Promotion note (E25):** the OpenClaw workspace-injection bug (~26k chars of system context **every turn** →
+23–60s latency on trivial prompts) makes lean context **usability-critical**, not just cost-critical. **Day-1 floor:**
+set `bootstrapMaxChars` / `contextWindow` *before sealing* the sandbox (Landlock then makes `/sandbox/.openclaw`
+read-only). **Ongoing guard:** the P2 prefill-budget linter. Promote P2 earlier accordingly.
 
 ## P3 — Injection-canary regression test for the browsing sub-agent
 Plant honeytokens; periodically feed the research sub-agent a local adversarial fixture and assert

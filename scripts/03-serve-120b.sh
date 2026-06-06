@@ -23,6 +23,13 @@ log "flushing caches before the heavy load…"
 # Engine alternative — the eugr build's launcher serves the same model; recorded here so the operator can
 # swap engines without re-deriving the MXFP4 flag set (keep the `vllm serve` below as the canonical interface):
 #   ./launch-cluster.sh --solo --exp-mxfp4 --mxfp4-backend CUTLASS --mxfp4-layers moe,qkv,o,lm_head
+#
+# TODO(verify-on-arrival): reconcile these flags against the E19 community-validated HEAVY recipe
+# (master-plan batch-3 addenda): --quantization mxfp4 / --mxfp4-backend CUTLASS / --mxfp4-layers moe,qkv,o,lmhead /
+# --attention-backend FLASHINFER / --load-format fastsafetensors / --kv-cache-dtype fp8 / --tool-call-parser openai /
+# --reasoning-parser openai_gptoss / --enable-prefix-caching. Heavy-tier --kv-cache-dtype fp8 is CORRECT per
+# CLAUDE.md 9d (heavy != resident BF16 pin), gated by its own garbage-canary + golden-set. Comment only — do NOT
+# edit flags blind here; verify the active backend from the startup log (E18), never the flag.
 log "starting GPT-OSS-120B MXFP4 on :$HEAVY_PORT (TP=1, CUTLASS MXFP4 path)…"
 vllm serve openai/gpt-oss-120b \
   --port "$HEAVY_PORT" \
