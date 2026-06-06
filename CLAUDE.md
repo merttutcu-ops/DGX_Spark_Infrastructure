@@ -64,3 +64,10 @@ is the day-to-day operating contract.
 - **Resident KV cache: BF16, never `fp8` KV** — until a P9 golden-set eval explicitly passes FP8-KV. Basis: E1. **Scope: RESIDENT TIER ONLY** (E1 evidence is Qwen3.6). The **heavy tier** follows the **E19 community-validated recipe including `--kv-cache-dtype fp8`**, gated by its own day-1 quality checks (garbage canary + golden-set). Two models, two evidence bases, two decisions — do not unify them.
 - **Resident quant (annotation, not a flip):** default candidate stays **Qwen3.6-35B-A3B NVFP4**; spring-2026 fixes (E12) made *both* kernel paths functional — the Marlin-only / #35947 rationale is **superseded**. Final resident quant is decided by the day-1 three-way sweep (master plan). Verify on arrival: **PR #38126**, **FlashInfer ≥0.6.8.post1**, **CUTLASS 4.5.0 (b12x)**.
 - **vLLM build pin is safety-critical:** tool-calling reliability is version-dependent (E14) — never bump vLLM without re-running the tool-eval gate.
+
+## CEO cost & caching pins
+*Full model: `docs/finops/opus-cost-model.md` (rates verified 2026-06-06).*
+- **Heartbeats are UNCACHED — do not mark their prefix cacheable.** Caching pays only if something *reads* the cache; at 30–60 min heartbeat cadence the 5-min window is always cold, so a cacheable prefix pays the **1.25× write premium ($6.25/MTok) for zero reads**. Plain input ($5/MTok) beats cold writes. *(`max_tokens:0` pre-warming is the latency tool if TTFT ever matters — not a cost tool.)*
+- **The CEO's tool list is IMMUTABLE within a session.** Tool-definition changes invalidate the **entire** cache (tools sit at the top of the prefix hierarchy) — the dispatcher must never mutate the CEO's tools per task.
+- **Fast mode default OFF.** It is 2× input/output rates, AND toggling speed fast↔standard invalidates the system+message caches — a "fast urgent turn" costs 2× rates **plus** a full cold cache-write on each toggle.
+- **Token estimates from raw text carry a +35% allowance.** The Opus 4.7+ tokenizer may use up to **35% more tokens** for the same text — all char-based budget math predating it is optimistic.
