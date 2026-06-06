@@ -59,9 +59,9 @@ wire the kill-switch to "total active sessions > N".
 
 *Entries 10–13 are from the 2026-06-06 plan cross-check (batch 3; E18–E27).*
 
-## 10. Heavy tier emits garbage (`!!!` / repetition) (E18)
-**Symptoms:** the heavy model (gpt-oss-120b) emits `!!!` runs or repetition loops instead of coherent output.
-**Detection:** a `!!!`/repetition canary on the heavy tier at startup; **read the startup log for the active backend** ("Using backend: marlin" / "Auto-selected: CUTLASS_FP4") — never infer it from the flag.
+## 10. Heavy tier emits garbage (`!!!` / repetition / fabrication) (E18/E37)
+**Symptoms:** the heavy model (gpt-oss-120b) emits `!!!` runs or repetition loops instead of coherent output — **or coherent-looking fabrication** (E37: the vLLM 0.19.x garbage era produced dropped/duplicated letters in paths and **8 invented C++ "vulnerabilities" referencing non-existent variables** — output that reads as plausible but is wrong).
+**Detection:** a `!!!`/repetition canary on the heavy tier at startup **plus a semantic / golden-set check (E37)** — a `!!!`/repetition canary by construction *cannot* catch fabrication that is grammatically and structurally normal, so the canary suite must also assert known-answer outputs against a golden set, not only scan for `!!!`/repetition patterns; **read the startup log for the active backend** ("Using backend: marlin" / "Auto-selected: CUTLASS_FP4") — never infer it from the flag.
 **Why it happens:** MXFP4 backend selection is **build-scoped** — stock vLLM 0.17.x mis-selects a broken CUTLASS MoE-GEMM kernel on SM121; both forked-CUTLASS and Marlin had real, since-fixed garbage eras (E18).
 **Fallback ladder (log-verified at each step):** on the eugr `--exp-mxfp4` fork → `--mxfp4-backend CUTLASS` (correct + fast). On stock vLLM → `VLLM_MXFP4_BACKEND=marlin` (`VLLM_NVFP4_GEMM_BACKEND` does **not** exist in 0.17.1, silently ignored). After any change, re-read the startup log and re-run the canary.
 
