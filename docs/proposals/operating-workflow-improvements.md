@@ -7,6 +7,7 @@ OpenClaw/NemoClaw stack) are unchanged. Each: idea · risk-or-leverage · cost.
 Nightly digest of Anthropic + LiteLLM logs: cache-hit ratio per agent, cached-prefix token size
 and drift, top cost-driving turns. *Risk:* silent cost creep from cache misses / prefix bloat the
 plan warns about but never instruments. *Cost:* low (one cron + Slack post).
+**Finops note:** the digest reports spend against the **$10/day** and **$250/mo** lines (`docs/finops/opus-cost-model.md`).
 
 ## P2 — Prefill-budget linter + scheduled MEMORY compaction
 Assert each agent's prefilled file set stays under a token budget (CI/pre-turn); scheduled
