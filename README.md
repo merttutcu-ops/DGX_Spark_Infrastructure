@@ -62,6 +62,7 @@ in `.github/` + repo root.
 
 - [x] Scaffold + docs complete · CI-green · tagged `v0.2.0-pre-hardware`
 - [ ] Hardware acquired   [ ] Week-1 serving validated   [ ] Phase-1 agents live
+  - ↳ once the Spark is in and stable, revisit **PR #7** (Ty's Outpost ↔ Spark integration — `parked: pre-hardware`; `docs/integrations/ty-outpost-integration.md`)
 
 ## Safety
 Deny-by-default egress; never connect banking / passwords / primary email; skill auto-update OFF; human
